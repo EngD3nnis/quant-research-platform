@@ -1,0 +1,266 @@
+---
+title: "`r params$title %||% 'Portfolio Analysis Report'`"
+subtitle: "Quant Research & Economic Intelligence Platform"
+author: "`r params$author %||% 'Quant Research Platform'`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    theme: flatly
+    highlight: pygments
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    css: "../../assets/themes/report.css"
+    self_contained: true
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    latex_engine: xelatex
+params:
+  cfg:    NULL
+  title:  NULL
+  author: NULL
+  tickers: ["SPY", "AGG", "GLD", "QQQ", "TLT"]
+  from:    "2020-01-01"
+  to:      NULL
+  rf:      0.0525
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo        = FALSE,
+  message     = FALSE,
+  warning     = FALSE,
+  fig.width   = 11,
+  fig.height  = 6.5,
+  dpi         = 180,
+  fig.align   = "center",
+  out.width   = "100%"
+)
+
+library(here)
+source(here::here("R", "utilities", "config.R"))
+source(here::here("R", "utilities", "helpers.R"))
+source(here::here("R", "ingestion",  "yahoo_finance.R"))
+source(here::here("R", "cleaning",   "clean_prices.R"))
+source(here::here("R", "transformations", "portfolio_analytics.R"))
+source(here::here("R", "visualization",   "theme.R"))
+source(here::here("R", "visualization",   "charts.R"))
+
+set_quant_theme()
+cfg     <- if (!is.null(params$cfg)) params$cfg else get_config()
+tickers <- params$tickers
+rf      <- params$rf
+to_date <- if (is.null(params$to)) Sys.Date() else as.Date(params$to)
+```
+
+---
+
+> **Classification:** Internal Research
+> **Horizon:** `r params$from` to `r format(to_date, "%Y-%m-%d")`
+> **Benchmark:** S&P 500 (SPY)
+> **Risk-Free Rate:** `r sprintf("%.2f%%", rf * 100)` (annualised)
+
+---
+
+## Executive Summary
+
+```{r load-data}
+prices_wide <- fetch_adjusted_prices(tickers, from = params$from, to = to_date, cfg = cfg)
+prices_wide <- fill_price_gaps(prices_wide)
+
+# Compute log returns
+tickers_avail <- setdiff(names(prices_wide), "date")
+returns_wide  <- prices_wide |>
+  dplyr::mutate(across(-date, ~ c(NA_real_, log_returns(.x)))) |>
+  dplyr::filter(!is.na(.data[[tickers_avail[1]]]))
+
+# Equal-weight portfolio
+n_assets <- length(tickers_avail)
+weights  <- setNames(rep(1 / n_assets, n_assets), tickers_avail)
+port     <- portfolio_statistics(returns_wide, weights, rf = rf)
+```
+
+This report provides a comprehensive quantitative analysis of a **`r n_assets`-asset portfolio** over the period **`r params$from`** to **`r format(to_date, "%Y-%m-%d")`** (`r port$stats["n_obs"]` trading days). The portfolio employs an equal-weight allocation, rebalanced continuously.
+
+### Key Performance Indicators
+
+```{r kpi-table}
+s <- port$stats
+kpi <- tibble::tibble(
+  Metric         = c("Total Return", "Annualised Return", "Annualised Volatility",
+                      "Sharpe Ratio", "Sortino Ratio", "Maximum Drawdown",
+                      "Calmar Ratio", "VaR 95% (daily)", "Expected Shortfall 95%"),
+  Value          = c(
+    sprintf("%.2f%%", s["total_return"]     * 100),
+    sprintf("%.2f%%", s["ann_return"]       * 100),
+    sprintf("%.2f%%", s["ann_volatility"]   * 100),
+    sprintf("%.3f",   s["sharpe_ratio"]),
+    sprintf("%.3f",   s["sortino_ratio"]),
+    sprintf("%.2f%%", s["max_drawdown"]     * 100),
+    sprintf("%.3f",   s["calmar_ratio"]),
+    sprintf("%.3f%%", s["var_95_daily"]     * 100),
+    sprintf("%.3f%%", s["es_95_daily"]      * 100)
+  ),
+  Interpretation = c(
+    "Cumulative compound return over full period",
+    "CAGR using geometric compounding",
+    "Annualised std dev × √252",
+    "(Ann. Return − Rf) / Ann. Vol — target > 1.0",
+    "(Ann. Return − Rf) / Downside Dev",
+    "Peak-to-trough maximum loss",
+    "Ann. Return / |Max Drawdown| — target > 1.0",
+    "Daily loss not exceeded 95% of the time (normal)",
+    "Expected loss given VaR is breached"
+  )
+)
+
+knitr::kable(kpi, align = c("l","r","l"),
+             caption = "Portfolio Performance Summary") |>
+  kableExtra::kable_styling(bootstrap_options = c("striped","hover","condensed"),
+                             full_width = FALSE)
+```
+
+---
+
+## 1. Performance Analysis
+
+### 1.1 NAV Trajectory
+
+```{r plot-nav}
+chart_performance(prices_wide,
+  title    = "Portfolio Asset Performance",
+  subtitle = "Adjusted closing prices, rebased to 100 at start of period")
+```
+
+*Chart reads: each line shows the cumulative return of a single asset if $100 were invested at the start of the period. Divergence between lines represents the cross-sectional dispersion of returns.*
+
+### 1.2 Return Distributions
+
+```{r return-dist, fig.height=8}
+plots <- purrr::map(tickers_avail, function(t) {
+  chart_return_distribution(returns_wide[[t]], ticker = t)
+})
+gridExtra::grid.arrange(grobs = plots, ncol = 2)
+```
+
+---
+
+## 2. Risk Analysis
+
+### 2.1 Drawdown (Underwater Chart)
+
+```{r drawdown}
+chart_drawdown(prices_wide)
+```
+
+### 2.2 Rolling 63-Day Volatility (Annualised)
+
+```{r rolling-vol}
+ret_long <- returns_wide |>
+  tidyr::pivot_longer(-date, names_to = "ticker", values_to = "return")
+chart_rolling_volatility(ret_long, window = 63)
+```
+
+---
+
+## 3. Correlation & Covariance Structure
+
+### 3.1 Correlation Matrix
+
+```{r corr-matrix}
+chart_correlation_matrix(returns_wide,
+  title = "Pairwise Asset Correlation (Daily Log-Returns)")
+```
+
+### 3.2 Covariance Summary
+
+```{r cov-table}
+Sigma <- cov(returns_wide[, tickers_avail], use = "pairwise.complete.obs") * 252
+round(Sigma * 100, 3) |>
+  knitr::kable(caption = "Annualised Covariance Matrix (×100)",
+               digits = 3) |>
+  kableExtra::kable_styling(bootstrap_options = "striped")
+```
+
+---
+
+## 4. CAPM & Factor Analysis
+
+```{r capm}
+capm_df <- capm_multi(returns_wide, benchmark_col = "SPY", rf_annual = rf)
+
+knitr::kable(capm_df |>
+  dplyr::mutate(across(where(is.numeric), ~ round(.x, 4))),
+  caption = "CAPM Results — OLS on Excess Returns vs S&P 500") |>
+  kableExtra::kable_styling(bootstrap_options = c("striped","hover"))
+```
+
+**Interpretation:**
+
+- **Alpha** > 0 indicates risk-adjusted outperformance of the benchmark (Jensen's α)
+- **Beta** > 1 implies amplified market sensitivity (aggressive); < 1 implies defensiveness
+- **R²** measures what fraction of return variation is explained by systematic (market) risk
+- **Treynor Ratio** = (excess return) / beta — risk-adjusted return per unit of systematic risk
+
+---
+
+## 5. Portfolio Optimisation
+
+### 5.1 Efficient Frontier
+
+```{r efficient-frontier}
+mu_vec  <- colMeans(returns_wide[, tickers_avail], na.rm = TRUE) * 252
+Sigma_a <- cov(returns_wide[, tickers_avail], use = "complete.obs") * 252
+frontier <- efficient_frontier(mu_vec, Sigma_a, n_points = 200, rf = rf)
+
+asset_df <- tibble::tibble(
+  ticker     = tickers_avail,
+  ann_return = mu_vec,
+  ann_vol    = sqrt(diag(Sigma_a))
+)
+
+chart_efficient_frontier(frontier, asset_df = asset_df, rf = rf)
+```
+
+---
+
+## 6. Methodology Notes
+
+### 6.1 Return Computation
+
+All returns are computed as **log-returns**: $r_t = \ln(S_t / S_{t-1})$. Log-returns are preferred over simple returns because they are:
+
+1. Time-additive: $r_{0,T} = \sum_{t=1}^T r_t$
+2. Normally distributed (approximately) for short horizons
+3. Symmetric around zero for gains/losses of equal magnitude
+
+### 6.2 Risk Metrics
+
+**Value at Risk (VaR):** Under the normal distribution assumption,
+$$\text{VaR}_\alpha = -(\mu - z_\alpha \sigma)$$
+where $z_\alpha = \Phi^{-1}(\alpha)$ is the $\alpha$-quantile of the standard normal.
+
+**Expected Shortfall (ES):** The conditional expectation of loss beyond VaR,
+$$\text{ES}_\alpha = -\left(\mu - \sigma \frac{\phi(z_\alpha)}{\alpha}\right)$$
+where $\phi$ is the standard normal PDF. ES is a coherent risk measure; VaR is not.
+
+### 6.3 Sharpe Ratio
+
+$$\text{SR} = \frac{\mu_{\text{ann}} - r_f}{\sigma_{\text{ann}}}$$
+
+Annualisation: $\mu_{\text{ann}} = (1 + \bar{r})^{252} - 1$, $\sigma_{\text{ann}} = \sigma_{\text{daily}} \times \sqrt{252}$.
+
+---
+
+## 7. Disclaimers
+
+This report is generated by an automated quantitative research platform for **educational and research purposes only**. Past performance does not guarantee future results. No investment advice is implied or intended. All models carry assumptions that may not hold in practice.
+
+---
+
+*Generated by Quant Research & Economic Intelligence Platform v1.0.0*
+*`r format(Sys.time(), "%Y-%m-%d %H:%M:%S UTC")`*

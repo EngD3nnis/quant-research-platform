@@ -1,0 +1,177 @@
+# =============================================================================
+# GitHub Actions CI/CD Pipeline
+# Quant Research & Economic Intelligence Platform
+#
+# Triggers: push to main/develop, pull requests to main
+# Jobs: lint → test → build-report → docker-build
+# =============================================================================
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  R_VERSION:      "4.4.1"
+  RENV_PATHS_ROOT: ~/.local/share/renv
+
+jobs:
+  # ============================================================================
+  # JOB 1: Code Quality (lintr)
+  # ============================================================================
+  lint:
+    name: Lint R Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      - name: Cache renv packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.RENV_PATHS_ROOT }}
+          key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }}
+          restore-keys: ${{ runner.os }}-renv-
+
+      - name: Restore renv
+        run: renv::restore()
+        shell: Rscript {0}
+
+      - name: Install lintr
+        run: install.packages("lintr")
+        shell: Rscript {0}
+
+      - name: Run lintr
+        run: |
+          results <- lintr::lint_dir("R/", linters = lintr::linters_with_defaults())
+          if (length(results) > 0) {
+            print(results)
+            quit(status = 1)
+          }
+          cat("Linting passed.\n")
+        shell: Rscript {0}
+
+  # ============================================================================
+  # JOB 2: Unit Tests (testthat)
+  # ============================================================================
+  test:
+    name: Run Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        r-version: ["4.3.3", "4.4.1"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r-version }}
+
+      - name: Cache renv
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.RENV_PATHS_ROOT }}
+          key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }}-${{ matrix.r-version }}
+
+      - name: Restore renv
+        run: renv::restore()
+        shell: Rscript {0}
+
+      - name: Run testthat
+        run: |
+          library(testthat)
+          library(here)
+          results <- testthat::test_dir(
+            here::here("tests", "testthat"),
+            reporter = testthat::ProgressReporter$new(show_praise = FALSE)
+          )
+          df <- as.data.frame(results)
+          if (any(df$failed > 0 | df$error)) {
+            cat("Test failures:\n")
+            print(df[df$failed > 0 | df$error, ])
+            quit(status = 1)
+          }
+          cat(sprintf("All %d tests passed.\n", sum(df$passed)))
+        shell: Rscript {0}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.r-version }}
+          path: tests/
+
+  # ============================================================================
+  # JOB 3: Docker Build (verify Dockerfile is valid)
+  # ============================================================================
+  docker:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push — verify only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: quant-research-platform:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # JOB 4: Render sample report (integration test)
+  # ============================================================================
+  render-report:
+    name: Render Portfolio Report
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ env.R_VERSION }}
+
+      - name: Install pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Restore renv
+        run: renv::restore()
+        shell: Rscript {0}
+
+      - name: Render portfolio report (simulated data)
+        run: |
+          rmarkdown::render(
+            "reports/automated/portfolio_report.Rmd",
+            output_format = "html_document",
+            output_file   = "report_ci_check.html",
+            output_dir    = "reports/html"
+          )
+          cat("Report rendered successfully.\n")
+        shell: Rscript {0}
+
+      - name: Upload report artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-report-html
+          path: reports/html/report_ci_check.html

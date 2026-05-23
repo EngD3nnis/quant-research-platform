@@ -1,0 +1,19 @@
+linters: linters_with_defaults(
+  line_length_linter(120),
+  object_name_linter("snake_case"),
+  assignment_linter(),
+  trailing_whitespace_linter(),
+  spaces_left_parentheses_linter(),
+  no_tab_linter(),
+  equals_na_linter(),
+  T_and_F_symbol_linter(),
+  seq_linter(),
+  cyclocomp_linter(complexity_limit = 20),
+  function_argument_linter()
+)
+exclusions: list(
+  "renv" = 1,
+  "tests/testthat" = list(
+    cyclocomp_linter = Inf
+  )
+)

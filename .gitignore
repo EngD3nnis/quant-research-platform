@@ -1,0 +1,71 @@
+# =============================================================================
+# .gitignore — Quant Research & Economic Intelligence Platform
+# =============================================================================
+
+# --- R artefacts -------------------------------------------------------------
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+*.rdb
+*.rdx
+
+# --- renv -------------------------------------------------------------------
+renv/library/
+renv/python/
+renv/staging/
+# Keep renv/activate.R and renv.lock for reproducibility
+
+# --- Data (never commit raw financial data) ----------------------------------
+data/raw/*.csv
+data/raw/*.rds
+data/raw/*.xlsx
+data/processed/*.csv
+data/processed/*.rds
+data/external/*.csv
+data/external/*.rds
+data/simulated/*.csv
+data/simulated/*.rds
+# Keep .gitkeep placeholder files
+
+# --- Reports (generated artefacts) ------------------------------------------
+reports/html/*.html
+reports/pdf/*.pdf
+reports/automated/*.html
+reports/automated/*.pdf
+
+# --- Logs --------------------------------------------------------------------
+logs/
+*.log
+
+# --- Environment & Secrets ---------------------------------------------------
+.env
+.env.local
+.Renviron
+config/secrets.yml
+config/api_keys.yml
+
+# --- Model artefacts ---------------------------------------------------------
+models/**/*.rds
+models/**/*.pkl
+
+# --- Assets (generated plots) ------------------------------------------------
+assets/plots/*.png
+assets/plots/*.svg
+assets/plots/*.pdf
+assets/tables/*.csv
+
+# --- OS & editor -------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Docker ------------------------------------------------------------------
+.dockerignore
+
+# --- GitHub Actions cache ---------------------------------------------------
+.github/actions/

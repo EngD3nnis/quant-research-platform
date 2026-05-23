@@ -1,0 +1,78 @@
+# =============================================================================
+# Platform Configuration
+# Quant Research & Economic Intelligence Platform
+# =============================================================================
+
+platform:
+  name: "Quant Research & Economic Intelligence Platform"
+  version: "1.0.0"
+  environment: "development"   # development | staging | production
+  seed: 42                     # global RNG seed for reproducibility
+
+paths:
+  data_raw:       "data/raw"
+  data_processed: "data/processed"
+  data_external:  "data/external"
+  data_simulated: "data/simulated"
+  models:         "models"
+  reports:        "reports"
+  logs:           "logs"
+  assets:         "assets"
+
+logging:
+  level: "INFO"   # DEBUG | INFO | WARN | ERROR
+  file: "logs/platform.log"
+  console: true
+
+data_sources:
+  yahoo_finance:
+    enabled: true
+    default_period: "5y"
+    default_interval: "1d"
+  fred:
+    enabled: true
+    base_url: "https://fred.stlouisfed.org/graph/fredgraph.csv"
+    api_key: ""   # set via environment variable FRED_API_KEY
+  world_bank:
+    enabled: true
+    base_url: "https://api.worldbank.org/v2"
+  imf:
+    enabled: true
+    base_url: "https://www.imf.org/external/datamapper/api/v1"
+
+portfolio:
+  default_tickers: ["SPY", "AGG", "GLD", "QQQ", "EEM", "TLT", "VNQ", "GSG"]
+  benchmark: "SPY"
+  risk_free_rate: 0.0525        # 5.25% — current approximate US T-bill rate
+  rebalance_frequency: "monthly"
+  max_weight: 0.40              # max allocation to any single asset
+  min_weight: 0.01
+
+risk:
+  var_confidence: [0.95, 0.99]
+  var_horizon_days: [1, 10, 21]
+  max_drawdown_threshold: -0.20
+  volatility_window: 252
+
+forecasting:
+  horizon_days: 30
+  n_simulations: 10000
+  arima_max_p: 5
+  arima_max_q: 5
+  arima_max_d: 2
+  garch_p: 1
+  garch_q: 1
+
+visualization:
+  theme: "institutional"
+  palette: "quant"
+  dpi: 300
+  width: 12
+  height: 7
+  format: ["png", "svg"]
+
+reporting:
+  author: "Quant Research Platform"
+  institution: "Independent Research"
+  auto_generate: true
+  formats: ["html", "pdf"]

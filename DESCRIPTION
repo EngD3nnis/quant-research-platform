@@ -1,0 +1,61 @@
+Package: QuantResearchPlatform
+Type: Package
+Title: Quant Research & Economic Intelligence Platform
+Version: 1.0.0
+Date: 2026-05-23
+Authors@R: person("Quant Research", "Platform",
+    email = "quant@research.platform",
+    role  = c("aut", "cre"))
+Description: An institutional-grade quantitative research platform for financial
+    analysis, macroeconomic intelligence, statistical modelling, and automated
+    reporting. Implements portfolio optimisation, CAPM, ARIMA/GARCH econometrics,
+    Monte Carlo simulation, and interactive Shiny dashboards.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 4.3.0)
+Imports:
+    quantmod (>= 0.4.25),
+    fredr    (>= 2.1.0),
+    WDI      (>= 2.7.8),
+    forecast (>= 8.22),
+    rugarch  (>= 1.5.3),
+    tseries  (>= 0.10-55),
+    dplyr    (>= 1.1.4),
+    tidyr    (>= 1.3.1),
+    purrr    (>= 1.0.2),
+    readr    (>= 2.1.4),
+    tibble   (>= 3.2.1),
+    lubridate(>= 1.9.3),
+    ggplot2  (>= 3.5.0),
+    plotly   (>= 4.10.4),
+    scales   (>= 1.3.0),
+    glue     (>= 1.7.0),
+    yaml     (>= 2.3.8),
+    here     (>= 1.0.1),
+    logger   (>= 0.3.0),
+    zoo      (>= 1.8.12),
+    Matrix   (>= 1.6.5),
+    quadprog (>= 1.5.8),
+    shiny    (>= 1.8.1),
+    bslib    (>= 0.7.0),
+    DT       (>= 0.33),
+    shinyjs  (>= 2.1.0),
+    rmarkdown(>= 2.27),
+    knitr    (>= 1.46),
+    kableExtra(>= 1.4.0),
+    sandwich (>= 3.1.0),
+    lmtest   (>= 0.9.40),
+    glmnet   (>= 4.1.8),
+    broom    (>= 1.0.5),
+    MASS     (>= 7.3.60)
+Suggests:
+    testthat   (>= 3.2.1),
+    lintr      (>= 3.1.1),
+    covr       (>= 3.6.4),
+    gridExtra  (>= 2.3),
+    ggrepel    (>= 0.9.5)
+RoxygenNote: 7.3.1
+URL: https://github.com/yourusername/quant-research-platform
+BugReports: https://github.com/yourusername/quant-research-platform/issues
