@@ -9,7 +9,7 @@
 ╚═══════════════════════════════════════════════════════════════════╝
 ```
 
-[![CI Pipeline](https://github.com/yourusername/quant-research-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/quant-research-platform/actions)
+[![CI Pipeline](https://github.com/EngD3nnis/quant-research-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/EngD3nnis/quant-research-platform/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![R Version](https://img.shields.io/badge/R-%3E%3D%204.3.0-276DC3?logo=r)](https://www.r-project.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](Dockerfile)
@@ -191,7 +191,7 @@ quant-research-platform/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/yourusername/quant-research-platform.git
+git clone https://github.com/EngD3nnis/quant-research-platform.git
 cd quant-research-platform
 ```
 

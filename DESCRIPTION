@@ -57,5 +57,5 @@ Suggests:
     gridExtra  (>= 2.3),
     ggrepel    (>= 0.9.5)
 RoxygenNote: 7.3.1
-URL: https://github.com/yourusername/quant-research-platform
-BugReports: https://github.com/yourusername/quant-research-platform/issues
+URL: https://github.com/EngD3nnis/quant-research-platform
+BugReports: https://github.com/EngD3nnis/quant-research-platform/issues

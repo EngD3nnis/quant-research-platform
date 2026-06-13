@@ -5,7 +5,7 @@ Thank you for considering a contribution to the Quant Research & Economic Intell
 ## Development Setup
 
 ```bash
-git clone https://github.com/yourusername/quant-research-platform.git
+git clone https://github.com/EngD3nnis/quant-research-platform.git
 cd quant-research-platform
 Rscript -e "renv::restore()"
 ```
