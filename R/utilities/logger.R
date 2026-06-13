@@ -16,7 +16,7 @@ suppressPackageStartupMessages(library(logger))
 init_logger <- function(cfg = NULL) {
   if (is.null(cfg)) cfg <- get_config()
 
-  level_map <- c(
+  level_map <- list(
     "DEBUG" = logger::DEBUG,
     "INFO"  = logger::INFO,
     "WARN"  = logger::WARN,
@@ -36,19 +36,22 @@ init_logger <- function(cfg = NULL) {
   }
 
   logger::log_formatter(logger::formatter_glue_or_sprintf)
-  log_info("[logger] Initialised at level {cfg$logging$level} → {log_file}")
+  logger::log_info("[logger] Initialised at level {cfg$logging$level} -> {log_file}",
+                   .topenv = environment())
   invisible(NULL)
 }
 
-# Convenience wrappers that prefix the calling module name
+# Convenience wrappers that preserve the calling environment for glue evaluation.
+# Without forwarding .topenv, logger::log_* evaluates glue strings inside the
+# wrapper's own empty frame — {var} references in the caller never resolve.
 #' @export
-log_debug <- function(...) logger::log_debug(...)
+log_debug <- function(..., .topenv = parent.frame()) logger::log_debug(..., .topenv = .topenv)
 #' @export
-log_info  <- function(...) logger::log_info(...)
+log_info  <- function(..., .topenv = parent.frame()) logger::log_info(...,  .topenv = .topenv)
 #' @export
-log_warn  <- function(...) logger::log_warn(...)
+log_warn  <- function(..., .topenv = parent.frame()) logger::log_warn(...,  .topenv = .topenv)
 #' @export
-log_error <- function(...) logger::log_error(...)
+log_error <- function(..., .topenv = parent.frame()) logger::log_error(..., .topenv = .topenv)
 
 #' Time a block of code and log its duration
 #'
@@ -59,6 +62,6 @@ log_timed <- function(label, expr) {
   t0  <- proc.time()["elapsed"]
   res <- force(expr)
   dt  <- round(proc.time()["elapsed"] - t0, 3)
-  log_info("[timer] {label} completed in {dt}s")
+  log_info("[timer] {label} completed in {dt}s", .topenv = environment())
   invisible(res)
 }

@@ -191,15 +191,18 @@ fit_arima <- function(x, max_p = 5, max_q = 5, max_d = 2, stepwise = TRUE) {
   if (is.null(model)) return(NULL)
 
   order      <- arimaorder(model)
-  coef_table <- broom::tidy(model)
+  coef_table <- tibble::tibble(
+    term     = names(model$coef),
+    estimate = as.numeric(model$coef)
+  )
 
   diagnostics <- list(
-    order      = order,
-    aic        = model$aic,
-    aicc       = model$aicc,
-    bic        = model$bic,
-    log_lik    = model$loglik,
-    n_params   = length(model$coef),
+    order        = order,
+    aic          = model$aic,
+    aicc         = model$aicc,
+    bic          = model$bic,
+    log_lik      = model$loglik,
+    n_params     = length(model$coef),
     coefficients = coef_table
   )
 

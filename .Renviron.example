@@ -1,0 +1,20 @@
+# ============================================================
+# Environment variables for the Quant Research Platform
+#
+# HOW TO USE:
+#   1. Copy this file to ".Renviron" in the project root
+#   2. Fill in your API key below
+#   3. Restart R (the file is read once at startup)
+#
+# R looks for .Renviron in the working directory first, then
+# your home directory (~/.Renviron). The project-level file
+# takes precedence.
+# ============================================================
+
+# FRED API key — free registration at:
+# https://fred.stlouisfed.org/docs/api/api_key.html
+#
+# Without this key the Macro Explorer tab will fail.
+# Yahoo Finance (Portfolio, CAPM, Monte Carlo, Forecasting tabs)
+# does NOT require an API key.
+FRED_API_KEY=your_fred_api_key_here

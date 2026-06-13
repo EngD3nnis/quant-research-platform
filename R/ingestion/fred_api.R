@@ -1,7 +1,19 @@
 # =============================================================================
 # FRED (Federal Reserve Economic Data) Ingestion Module
 # Fetches macroeconomic time series via the fredr package.
-# Covers: GDP, CPI, unemployment, interest rates, yield curves, etc.
+#
+# API key setup (required for reliable access):
+#   1. Register free at https://fred.stlouisfed.org/docs/api/api_key.html
+#   2. Add  FRED_API_KEY=your_key  to .Renviron in the project root
+#   3. Restart R
+#
+# Without a key, requests use the public endpoint which is rate-limited
+# to ~120 requests/minute; burst batches will fail. A key removes this limit.
+#
+# Reliability strategy:
+#   - Cache RDS for 7 days (macro data updates infrequently)
+#   - Retry up to 3 times with exponential backoff on transient failures
+#   - Individual series failures are logged and skipped in batch calls
 # =============================================================================
 
 suppressPackageStartupMessages({
@@ -14,6 +26,9 @@ suppressPackageStartupMessages({
 
 source(here::here("R", "utilities", "logger.R"))
 source(here::here("R", "utilities", "config.R"))
+
+# Macro data changes slowly — cache for 7 days
+.FRED_CACHE_MAX_AGE_HOURS <- 7L * 24L
 
 # ---- Well-Known Series Catalogue ---------------------------------------------
 
@@ -55,6 +70,27 @@ FRED_SERIES <- list(
   case_shiller      = list(id = "CSUSHPINSA",name = "Case-Shiller Home Price Index", freq = "monthly")
 )
 
+# ---- Internal: set API key once per session ----------------------------------
+.fred_key_set <- FALSE
+
+.ensure_fred_key <- function(cfg) {
+  if (.fred_key_set) return(invisible(NULL))
+
+  api_key <- cfg$data_sources$fred$api_key
+  if (!is.null(api_key) && nchar(trimws(api_key)) > 0L) {
+    fredr::fredr_set_key(api_key)
+    .fred_key_set <<- TRUE
+  } else {
+    log_warn(paste(
+      "[fred] No FRED_API_KEY set. The public endpoint is rate-limited",
+      "(~120 req/min) and batch requests will fail.",
+      "Get a free key at: https://fred.stlouisfed.org/docs/api/api_key.html",
+      "Then add  FRED_API_KEY=your_key  to .Renviron and restart R."
+    ))
+  }
+  invisible(NULL)
+}
+
 # ---- Core Fetcher ------------------------------------------------------------
 
 #' Fetch a single FRED series
@@ -62,9 +98,10 @@ FRED_SERIES <- list(
 #' @param series_id  FRED series identifier (e.g. "UNRATE")
 #' @param from       Start date
 #' @param to         End date
-#' @param use_cache  Return cached data if available
+#' @param use_cache  Return cached data if still fresh (< 7 days old)
 #' @param cfg        Configuration list
 #' @return tibble with columns: date, value, series_id, units, title
+#'         Returns NULL on failure.
 #' @export
 fetch_fred <- function(series_id,
                        from      = "2000-01-01",
@@ -72,13 +109,7 @@ fetch_fred <- function(series_id,
                        use_cache = TRUE,
                        cfg       = get_config()) {
 
-  # Authenticate with FRED API key
-  api_key <- cfg$data_sources$fred$api_key
-  if (nchar(api_key) > 0) {
-    fredr::fredr_set_key(api_key)
-  } else {
-    log_warn("[fred] No API key set — using public endpoint (rate limited)")
-  }
+  .ensure_fred_key(cfg)
 
   cache_path <- file.path(
     cfg$paths$data_raw,
@@ -86,26 +117,48 @@ fetch_fred <- function(series_id,
   )
 
   if (use_cache && file.exists(cache_path)) {
-    log_info("[fred] Cache hit for {series_id}")
-    return(readRDS(cache_path))
+    age_h <- as.numeric(difftime(Sys.time(), file.mtime(cache_path), units = "hours"))
+    if (age_h < .FRED_CACHE_MAX_AGE_HOURS) {
+      log_info("[fred] Cache hit: {series_id} ({round(age_h, 1)} h old)")
+      return(readRDS(cache_path))
+    }
+    log_info("[fred] Cache stale ({round(age_h, 1)} h) for {series_id} — refreshing")
   }
 
-  log_info("[fred] Fetching series: {series_id}")
+  log_info("[fred] Fetching series: {series_id} ({from} to {to})")
 
   info <- tryCatch(fredr::fredr_series(series_id), error = function(e) NULL)
-  obs  <- tryCatch(
-    fredr::fredr(
-      series_id         = series_id,
-      observation_start = as.Date(from),
-      observation_end   = as.Date(to)
-    ),
-    error = function(e) {
-      log_error("[fred] Failed {series_id}: {conditionMessage(e)}")
-      return(NULL)
-    }
-  )
 
-  if (is.null(obs)) return(NULL)
+  # Retry with backoff — FRED rate-limits unauthenticated requests
+  obs        <- NULL
+  last_error <- "unknown error"
+
+  for (attempt in seq_len(3L)) {
+    obs <- tryCatch(
+      fredr::fredr(
+        series_id         = series_id,
+        observation_start = as.Date(from),
+        observation_end   = as.Date(to)
+      ),
+      error = function(e) {
+        last_error <<- conditionMessage(e)
+        NULL
+      }
+    )
+
+    if (!is.null(obs)) break
+
+    if (attempt < 3L) {
+      wait <- 2^attempt
+      log_warn("[fred] Attempt {attempt}/3 failed for {series_id} — retrying in {wait}s")
+      Sys.sleep(wait)
+    }
+  }
+
+  if (is.null(obs)) {
+    log_error("[fred] All attempts failed for {series_id}: {last_error}")
+    return(NULL)
+  }
 
   df <- obs |>
     dplyr::select(date, value) |>
@@ -116,8 +169,14 @@ fetch_fred <- function(series_id,
     ) |>
     dplyr::filter(!is.na(value))
 
+  if (nrow(df) == 0L) {
+    log_warn("[fred] {series_id} returned 0 non-NA observations for {from} to {to}")
+    return(NULL)
+  }
+
+  dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
   saveRDS(df, cache_path)
-  log_info("[fred] Fetched {nrow(df)} observations for {series_id}")
+  log_info("[fred] Cached {nrow(df)} observations for {series_id}")
   df
 }
 
@@ -129,13 +188,14 @@ fetch_fred <- function(series_id,
 #' @param to          End date
 #' @param cfg         Configuration list
 #' @return Long-format tibble: date, series_id, value, title, units
+#'         Series that fail are silently omitted.
 #' @export
 fetch_fred_multi <- function(series_keys = names(FRED_SERIES),
                               from        = "2000-01-01",
                               to          = Sys.Date(),
                               cfg         = get_config()) {
 
-  # Resolve catalogue keys → FRED series IDs
+  # Resolve catalogue keys -> FRED series IDs
   ids <- purrr::map_chr(series_keys, function(k) {
     if (k %in% names(FRED_SERIES)) FRED_SERIES[[k]]$id else k
   })
@@ -150,7 +210,13 @@ fetch_fred_multi <- function(series_keys = names(FRED_SERIES),
     )
   })
 
-  dplyr::bind_rows(purrr::compact(results))
+  fetched <- purrr::compact(results)
+  if (length(fetched) == 0L) {
+    log_error("[fred] No series could be fetched. Verify FRED_API_KEY is set in .Renviron.")
+    return(NULL)
+  }
+
+  dplyr::bind_rows(fetched)
 }
 
 #' Compute the US yield curve (daily snapshot at a given date)
@@ -173,13 +239,13 @@ fetch_yield_curve <- function(date = Sys.Date(), cfg = get_config()) {
     "30"   = "DGS30"
   )
 
-  from <- date - 30  # window to find the closest available observation
+  from <- date - 30L  # look back 30 days to find the nearest observation
 
   purrr::imap_dfr(maturities, function(id, mat) {
     df <- fetch_fred(id, from = from, to = date, cfg = cfg)
-    if (is.null(df) || nrow(df) == 0) return(NULL)
+    if (is.null(df) || nrow(df) == 0L) return(NULL)
     df |>
-      dplyr::slice_tail(n = 1) |>
+      dplyr::slice_tail(n = 1L) |>
       dplyr::mutate(maturity_years = as.numeric(mat)) |>
       dplyr::select(date, maturity_years, yield = value)
   })

@@ -1,0 +1,207 @@
+/* ============================================================
+   Quant Research Platform — Report Stylesheet
+   Applied to all HTML reports rendered via portfolio_report.Rmd
+   ============================================================ */
+
+/* ---- Typography & Base ------------------------------------ */
+body {
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #1C1C1C;
+  background-color: #FAFAFA;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  color: #1A3A5C;
+  font-weight: 700;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+}
+
+h1 { font-size: 2rem;   border-bottom: 3px solid #1A3A5C; padding-bottom: 8px; }
+h2 { font-size: 1.5rem; border-bottom: 1px solid #CCCCCC; padding-bottom: 4px; }
+h3 { font-size: 1.15rem; color: #2980B9; }
+h4 { font-size: 1rem;    color: #555555; font-weight: 600; }
+
+/* ---- Links ------------------------------------------------ */
+a { color: #2980B9; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---- Code ------------------------------------------------- */
+code {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  font-size: 0.88em;
+  background-color: #F0F4F8;
+  border: 1px solid #DDE3EA;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #C0392B;
+}
+
+pre {
+  background-color: #F0F4F8;
+  border: 1px solid #DDE3EA;
+  border-left: 4px solid #1A3A5C;
+  border-radius: 4px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  font-size: 0.87em;
+  line-height: 1.55;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1C1C1C;
+}
+
+/* ---- Tables ----------------------------------------------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.9em;
+}
+
+thead th {
+  background-color: #1A3A5C;
+  color: #FFFFFF;
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: left;
+  letter-spacing: 0.3px;
+}
+
+tbody tr:nth-child(even) { background-color: #F7F9FC; }
+tbody tr:hover           { background-color: #EBF0F7; }
+
+tbody td {
+  padding: 8px 14px;
+  border-bottom: 1px solid #E8EDF3;
+  vertical-align: top;
+}
+
+/* ---- KPI / Metric Boxes ----------------------------------- */
+.metric-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 1.2em 0;
+}
+
+.metric-box {
+  flex: 1 1 140px;
+  background: #FFFFFF;
+  border: 1px solid #DDE3EA;
+  border-radius: 6px;
+  padding: 14px 18px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  color: #1A3A5C;
+}
+
+.metric-label {
+  font-size: 0.72rem;
+  color: #8B949E;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 4px;
+}
+
+.metric-pos { color: #27AE60; }
+.metric-neg { color: #C0392B; }
+.metric-neu { color: #D4A017; }
+
+/* ---- Callout Blocks --------------------------------------- */
+blockquote {
+  background: #F0F4F8;
+  border-left: 4px solid #2980B9;
+  border-radius: 0 4px 4px 0;
+  margin: 1em 0;
+  padding: 12px 18px;
+  color: #333333;
+  font-style: normal;
+}
+
+/* ---- Figures ---------------------------------------------- */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+  margin: 1em auto;
+}
+
+.figure-caption, figcaption {
+  font-size: 0.8em;
+  color: #8B949E;
+  text-align: center;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ---- Page Layout ------------------------------------------ */
+.main-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+}
+
+/* ---- Header Banner ---------------------------------------- */
+.report-header {
+  background: linear-gradient(135deg, #1A3A5C 0%, #2980B9 100%);
+  color: #FFFFFF;
+  padding: 28px 32px;
+  border-radius: 8px;
+  margin-bottom: 28px;
+}
+
+.report-header h1 { color: #FFFFFF; border-bottom-color: rgba(255,255,255,0.3); }
+.report-header p  { color: rgba(255,255,255,0.8); margin: 4px 0; font-size: 0.9em; }
+
+/* ---- Table of Contents ------------------------------------ */
+#TOC {
+  background: #FFFFFF;
+  border: 1px solid #DDE3EA;
+  border-radius: 6px;
+  padding: 16px 20px;
+  font-size: 0.9em;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+#TOC ul { margin: 4px 0; padding-left: 20px; }
+#TOC li { margin: 3px 0; }
+#TOC a  { color: #2980B9; }
+
+/* ---- Section Dividers ------------------------------------- */
+hr {
+  border: none;
+  border-top: 1px solid #E0E6ED;
+  margin: 2em 0;
+}
+
+/* ---- Disclaimer ------------------------------------------- */
+.disclaimer {
+  font-size: 0.8em;
+  color: #8B949E;
+  border-top: 1px solid #E0E6ED;
+  padding-top: 16px;
+  margin-top: 32px;
+}
+
+/* ---- Print ------------------------------------------------ */
+@media print {
+  body { font-size: 12px; background: white; }
+  h1, h2, h3, h4 { page-break-after: avoid; }
+  table { page-break-inside: avoid; }
+  .no-print { display: none; }
+}
